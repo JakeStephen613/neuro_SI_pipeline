@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""
+verify_questions.py — SI Pipeline Step 3
+
+Validates generated Q&A questions using two LLM families simultaneously.
+A question is kept only when BOTH models agree it is valid.
+
+Usage:
+  python curriculum_generator/verify_questions.py \\
+    --input_json  ${OUTPUT_BASE}/SI/QA_items/curriculum_dataset.json \\
+    --output_json ${OUTPUT_BASE}/SI/QA_items/verified/validated.json \\
+    --model_ids   /path/to/mistral-nemo-12b /path/to/qwen3-14b
+
+Run via SLURM:
+  sbatch curriculum_generator/verify_questions.slurm
+"""
+
+import os
+import sys
+import gc
+import torch
+import json
+import re
+import math
+import logging
+import argparse
+from typing import List, Dict
+
+from vllm import LLM, SamplingParams
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
+
+
+SYSTEM_PROMPT_QA_VALIDATION = """You are an editor for a graduate-level neuroscience exam dataset.
+You will be provided with:
+1. A **Context Path**: A chain of biological facts from a Knowledge Graph (e.g., A -> causes -> B).
+2. A **Question**: A multiple-choice question derived from this path.
+3. An **Answer** and **Explanation**.
+
+Your Task: Validate if this is a high-quality, solvable question.
+
+Criteria for [yes]:
+- **Grounded:** The Question/Answer must be logically supported by the Context Path.
+- **Solvable:** The correct answer must be unambiguous based on the science.
+- **Meaningful:** The question should test understanding, not trivial connections.
+- **Non-Circular:** The question should not simply repeat the path verbatim.
+
+Criteria for [no]:
+- The Question contradicts the Context Path.
+- The Explanation is hallucinated or does not follow the biology.
+- The Question is nonsensical, grammatically broken, or empty.
+
+Output Format:
+1. Think step-by-step in <think> tags.
+2. Output EXACTLY one of: [yes]  or  [no]
+""".strip()
+
+
+def parse_args():
+    ap = argparse.ArgumentParser(description="Two-LLM validation of generated Q&A items")
+    ap.add_argument("--input_json", required=True,
+                    help="Input JSON file with generated Q&A items")
+    ap.add_argument("--output_json", required=True,
+                    help="Output JSON file for validated Q&A items")
+    ap.add_argument("--model_ids", nargs="+", required=True,
+                    help="Exactly 2 model paths for two-LLM validation")
+    ap.add_argument("--tensor_parallel_size", type=int, default=1)
+    ap.add_argument("--gpu_memory_utilization", type=float, default=0.70)
+    ap.add_argument("--batch_size", type=int, default=64)
+    ap.add_argument("--subset", type=int, default=0,
+                    help="If > 0, only validate this many items (for debugging)")
+    return ap.parse_args()
+
+
+def build_validation_prompt(item: Dict) -> str:
+    context = item.get("path_string", item.get("context_path", ""))
+    question = item.get("question", "")
+    answer = item.get("answer", "")
+    explanation = item.get("explanation", item.get("thinking_trace", ""))
+    return (
+        f"Context Path: {context}\n\n"
+        f"Question: {question}\n\n"
+        f"Answer: {answer}\n\n"
+        f"Explanation: {explanation}"
+    )
+
+
+def _parse_verdict(text: str) -> bool:
+    text = text.lower()
+    m = re.search(r"\[(yes|no)\]", text)
+    if m:
+        return m.group(1) == "yes"
+    return False
+
+
+def validate_with_model(items: List[Dict], model_id: str,
+                        tensor_parallel_size: int, gpu_memory_utilization: float,
+                        batch_size: int) -> List[bool]:
+    logger.info("Loading model: %s", model_id)
+    llm = LLM(
+        model=model_id,
+        tensor_parallel_size=tensor_parallel_size,
+        gpu_memory_utilization=gpu_memory_utilization,
+        trust_remote_code=True,
+    )
+    sampling = SamplingParams(temperature=0.0, top_p=1.0, max_tokens=256)
+    results = []
+
+    for start in range(0, len(items), batch_size):
+        batch = items[start:start + batch_size]
+        prompts = []
+        for item in batch:
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT_QA_VALIDATION},
+                {"role": "user", "content": build_validation_prompt(item)},
+            ]
+            prompts.append(messages)
+
+        outputs = llm.chat(prompts, sampling_params=sampling)
+        for out in outputs:
+            text = out.outputs[0].text if out.outputs else ""
+            results.append(_parse_verdict(text))
+
+        done = start + len(batch)
+        if done % (batch_size * 10) == 0 or done == len(items):
+            logger.info("Validated %d/%d [%s]", done, len(items), os.path.basename(model_id))
+
+    del llm
+    gc.collect()
+    torch.cuda.empty_cache()
+    return results
+
+
+def main():
+    args = parse_args()
+
+    if len(args.model_ids) != 2:
+        raise ValueError("Exactly 2 model_ids required for two-LLM validation")
+
+    logger.info("Loading input: %s", args.input_json)
+    with open(args.input_json, "r") as f:
+        items = json.load(f)
+    logger.info("Total items: %d", len(items))
+
+    if args.subset > 0:
+        items = items[:args.subset]
+        logger.info("Using subset of %d items", len(items))
+
+    scores_1 = validate_with_model(
+        items, args.model_ids[0],
+        args.tensor_parallel_size, args.gpu_memory_utilization, args.batch_size
+    )
+    scores_2 = validate_with_model(
+        items, args.model_ids[1],
+        args.tensor_parallel_size, args.gpu_memory_utilization, args.batch_size
+    )
+
+    validated = [
+        item for item, v1, v2 in zip(items, scores_1, scores_2) if v1 and v2
+    ]
+
+    os.makedirs(os.path.dirname(os.path.abspath(args.output_json)), exist_ok=True)
+    with open(args.output_json, "w") as f:
+        json.dump(validated, f, indent=2)
+
+    logger.info("Input:  %d items", len(items))
+    logger.info("Valid (both agree): %d (%.1f%%)", len(validated),
+                100 * len(validated) / max(len(items), 1))
+    logger.info("Saved to: %s", args.output_json)
+
+
+if __name__ == "__main__":
+    main()

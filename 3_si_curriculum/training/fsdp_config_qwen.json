@@ -1,0 +1,12 @@
+{
+"fsdp_transformer_layer_cls_to_wrap": ["Qwen3DecoderLayer"],
+    "xla": false,
+    "xla_fsdp_v2": false,
+    "xla_fsdp_grad_ckpt": false,
+    "activation_checkpointing": false,
+    "use_orig_params": true,
+    "sync_module_states": true,
+    "forward_prefetch": false,
+    "backward_prefetch": "backward_pre",
+    "limit_all_gathers": true
+}

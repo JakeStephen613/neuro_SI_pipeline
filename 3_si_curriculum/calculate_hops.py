@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""
+calculate_hops.py
+
+Computes the hop distance of each triple in the final KG relative to the seed KG.
+Hop distance = minimum number of edges between the expanded triple and any seed triple.
+
+Usage:
+  python calculate_hops.py \\
+    --kg_path      ${OUTPUT_BASE}/final_kg/validated_final_kg.csv \\
+    --seed_kg_path ${OUTPUT_BASE}/final_seedkg/neuroscience_kg.csv \\
+    --output_path  ${OUTPUT_BASE}/final_kg/all_hops_detailed.csv
+
+Inputs:
+  kg_path:      Full expanded KG CSV (head, relation, tail)
+  seed_kg_path: Seed KG CSV (head, relation, tail)
+
+Output:
+  all_hops_detailed.csv: original columns + hop_distance column
+"""
+
+import argparse
+import logging
+from pathlib import Path
+
+import networkx as nx
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
+
+def parse_args():
+    ap = argparse.ArgumentParser(description="Compute hop distances from seed KG")
+    ap.add_argument("--kg_path", required=True,
+                    help="Full expanded KG CSV (head, relation, tail)")
+    ap.add_argument("--seed_kg_path", required=True,
+                    help="Seed KG CSV (head, relation, tail)")
+    ap.add_argument("--output_path", required=True,
+                    help="Output CSV path with hop_distance column added")
+    return ap.parse_args()
+
+
+def build_graph(df: pd.DataFrame) -> nx.Graph:
+    G = nx.Graph()
+    for _, row in df.iterrows():
+        h = str(row["head"]).strip().lower()
+        t = str(row["tail"]).strip().lower()
+        if h and t:
+            G.add_edge(h, t)
+    return G
+
+
+def compute_hop_distances(full_df: pd.DataFrame, seed_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    For each triple in full_df, compute the shortest path distance to any
+    entity in the seed KG using a graph built from the full KG.
+    """
+    logger.info("Building full KG graph...")
+    G = build_graph(full_df)
+
+    # Seed entities
+    seed_entities = set()
+    for _, row in seed_df.iterrows():
+        seed_entities.add(str(row["head"]).strip().lower())
+        seed_entities.add(str(row["tail"]).strip().lower())
+
+    logger.info("Seed entities: %d", len(seed_entities))
+    logger.info("Full KG nodes: %d  edges: %d", G.number_of_nodes(), G.number_of_edges())
+
+    # Find distances from all seed nodes (BFS from multiple sources)
+    seed_nodes_in_graph = seed_entities & set(G.nodes())
+    if not seed_nodes_in_graph:
+        logger.warning("No seed entities found in full KG graph — all hops will be infinity")
+        full_df["hop_distance"] = float("inf")
+        return full_df
+
+    logger.info("Computing BFS distances from %d seed nodes...", len(seed_nodes_in_graph))
+    distances = {}
+    for source in seed_nodes_in_graph:
+        if source not in G:
+            continue
+        lengths = nx.single_source_shortest_path_length(G, source)
+        for node, dist in lengths.items():
+            if node not in distances or dist < distances[node]:
+                distances[node] = dist
+
+    # Assign hop distance to each triple (min of head, tail distances)
+    hop_distances = []
+    for _, row in full_df.iterrows():
+        h = str(row["head"]).strip().lower()
+        t = str(row["tail"]).strip().lower()
+        d_h = distances.get(h, float("inf"))
+        d_t = distances.get(t, float("inf"))
+        hop_distances.append(min(d_h, d_t))
+
+    full_df = full_df.copy()
+    full_df["hop_distance"] = hop_distances
+    return full_df
+
+
+def main():
+    args = parse_args()
+
+    logger.info("Loading full KG: %s", args.kg_path)
+    full_df = pd.read_csv(args.kg_path)
+    logger.info("Full KG: %d triples", len(full_df))
+
+    logger.info("Loading seed KG: %s", args.seed_kg_path)
+    seed_df = pd.read_csv(args.seed_kg_path)
+    logger.info("Seed KG: %d triples", len(seed_df))
+
+    result_df = compute_hop_distances(full_df, seed_df)
+
+    output_path = Path(args.output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    result_df.to_csv(output_path, index=False)
+
+    logger.info("Hop distance distribution:")
+    logger.info("%s", result_df["hop_distance"].value_counts().sort_index().to_string())
+    logger.info("Saved to: %s", output_path)
+
+
+if __name__ == "__main__":
+    main()

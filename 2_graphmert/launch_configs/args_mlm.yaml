@@ -1,0 +1,117 @@
+# ===================== MODEL & CONFIG =====================
+# GraphMERT architecture (paper configuration):
+#   root_nodes = max_seq_length = 512
+#   num_leaves = 3  =>  max_nodes = 512 * (1 + 3) = 2048
+#
+# To adjust for your data: if triple tails are long (avg > 3 tokens),
+# increase num_leaves to 7 and update max_nodes accordingly.
+
+config_overrides: "max_nodes=2048,root_nodes=512,num_hidden_layers=6,num_attention_heads=12,hidden_size=768,intermediate_size=3072,pretrained_emb_dim=0,mlm_sbo=true"
+warmup_ratio: 0.06
+
+model_type: graphmert
+model_name_or_path: null
+config_name: null
+model_revision: main
+
+use_fast_tokenizer: false
+
+# Set cache_dir to a scratch directory on your HPC cluster
+# Example: /scratch/gpfs/<your_netid>/neuro_pipeline/graphmert/model_cache
+cache_dir: <YOUR_SCRATCH>/neuro_pipeline/graphmert/model_cache
+
+# ===================== DATA FILES =====================
+# Raw text files for tokenization (not used directly in MLM — set for reference)
+train_file: null
+validation_file: null
+
+# ===================== PREPROCESSING =====================
+# These paths are used by run_dataset_preprocessing.py.
+# Set to wherever run_tokenization.py wrote its outputs.
+# Example: /scratch/gpfs/<your_netid>/neuro_pipeline/graphmert
+
+preprocessing_output_root: <YOUR_SCRATCH>/neuro_pipeline/graphmert/preprocessed
+
+# train_src and eval_src: outputs of clean_llm_relations.py
+# (can also be passed as --train_src / --eval_src to run_dataset_preprocessing.py)
+train_src: <YOUR_SCRATCH>/neuro_pipeline/graphmert/llm_relations/relations_cleaned_train
+eval_src:  <YOUR_SCRATCH>/neuro_pipeline/graphmert/llm_relations/relations_cleaned_eval
+
+# seed_kg_path: output of merge_kgs.py from Part 1
+injections_train_path: <YOUR_SCRATCH>/neuro_pipeline/final_seedkg/neuroscience_kg.csv
+injections_eval_path:  <YOUR_SCRATCH>/neuro_pipeline/final_seedkg/neuroscience_kg.csv
+
+# relation_map_path: written by run_dataset_preprocessing.py
+relation_map_path: <YOUR_SCRATCH>/neuro_pipeline/graphmert/preprocessed/relation_map.json
+
+preprocessing_num_workers: 0
+overwrite_cache: true
+
+# ===================== GRAPHMERT SETTINGS =====================
+num_relationships: 43
+graph_types:
+  - root_undirected
+  - leaf_undirected
+  - leaf_connected_undirected
+
+relation_emb_dropout: 0.3
+mlm_sbo: true
+mlm_probability: 0.15
+mlm_on_leaves_probability: 0.15
+span_upper_length: 2
+
+# ===================== TOKENIZER =====================
+# Set to the stable_tokenizer directory created by run_tokenization.py
+# Example: /scratch/gpfs/<your_netid>/neuro_pipeline/graphmert/stable_tokenizer
+tokenizer_name: <YOUR_SCRATCH>/neuro_pipeline/graphmert/stable_tokenizer
+subword_token_start: "##"
+use_auth_token: false
+
+# ===================== DATA TRAINING ARGS =====================
+dataset_name: null
+dataset_config_name: null
+validation_split_percentage: 5
+max_seq_length: 512
+
+# ===================== TRAINING =====================
+# Set output_dir to where model checkpoints should be saved
+output_dir: <YOUR_SCRATCH>/neuro_pipeline/graphmert/mlm_output
+per_device_train_batch_size: 2
+per_device_eval_batch_size: 2
+gradient_accumulation_steps: 16
+num_train_epochs: 20
+warmup_ratio: 0.06
+weight_decay: 0.01
+
+# LR search: try these values first (0.25–2 epochs each), then pick best
+lrs: [0.0004, 0.0005]
+
+dataloader_num_workers: 0
+dataloader_prefetch_factor: null
+
+# ===================== EVALUATION =====================
+evaluation_strategy: steps
+logging_strategy: steps
+save_strategy: steps
+eval_steps: 25
+logging_steps: 5
+save_steps: 100
+
+load_best_model_at_end: true
+metric_for_best_model: eval_loss
+greater_is_better: false
+
+lr_scheduler_type: cosine_with_min_lr
+lr_scheduler_kwargs:
+  min_lr: 1.0e-5
+bf16: true
+seed: 0
+do_train: true
+do_eval: true
+do_predict: false
+overwrite_output_dir: true
+resume_from_checkpoint: false
+remove_unused_columns: false
+save_safetensors: false
+save_total_limit: 4
+log_level: info
