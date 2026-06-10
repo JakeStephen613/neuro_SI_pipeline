@@ -588,3 +588,34 @@ sbatch 3_si_curriculum/slurm/rl_training.slurm
 | SLURM OOM | Model too large for allocated GPU | Increase `--gres=gpu:2` or reduce `--max_model_len` / `--tensor_parallel_size` |
 | `ModuleNotFoundError: No module named 'vllm'` | Wrong conda env | vLLM is in `graphrag` env; use that env for inference scripts |
 | `load_metric` import error | Outdated `datasets` version | `pip install --upgrade datasets evaluate` in the graphmert env |
+
+---
+## Citations
+
+This pipeline was developed from two projects in the Jha Lab. 
+
+If you use Stage 1 or 2 (GraphMERT code, models, data or data processing scripts) in your work, please cite the following paper:
+
+```bibtex
+@article{
+    belova2026graphmert,
+    title={Graph{MERT}: {E}fficient and Scalable Distillation of Reliable Knowledge Graphs from Unstructured Data},
+    author={Margarita Belova and Jiaxin Xiao and Shikhar Tuli and Niraj Jha},
+    journal={Transactions on Machine Learning Research},
+    issn={2835-8856},
+    year={2026},
+    url={[https://openreview.net/forum?id=tnXSdDhvqc](https://openreview.net/forum?id=tnXSdDhvqc)},
+}
+
+If you use Stage 3, please cite the paper below: 
+
+@misc{dedhia2025bottomupdomainspecificsuperintelligencereliable,
+      title={Bottom-up Domain-specific Superintelligence: A Reliable Knowledge Graph is What We Need}, 
+      author={Bhishma Dedhia and Yuval Kansal and Niraj K. Jha},
+      year={2025},
+      eprint={2507.13966},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={[https://arxiv.org/abs/2507.13966](https://arxiv.org/abs/2507.13966)},
+}
+
