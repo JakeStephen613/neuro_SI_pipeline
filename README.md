@@ -307,9 +307,6 @@ python 2_graphmert/utils/relation_matching/clean_llm_relations.py \
 For each `(head, relation, tail)` triple in the seed KG, finds text snippets
 where both head AND tail appear together and builds GraphMERT training samples.
 
-> This step incorporates the logic of the old `graphmert_bridge.py` — there is
-> no separate bridge step.
-
 ```bash
 python 2_graphmert/run_dataset_preprocessing.py \
     --yaml_file    2_graphmert/launch_configs/args_mlm.yaml \
