@@ -606,8 +606,11 @@ If you use Stage 1 or 2 (GraphMERT code, models, data or data processing scripts
     year={2026},
     url={[https://openreview.net/forum?id=tnXSdDhvqc](https://openreview.net/forum?id=tnXSdDhvqc)},
 }
+```
 
 If you use Stage 3, please cite the paper below: 
+
+```bibtex
 
 @misc{dedhia2025bottomupdomainspecificsuperintelligencereliable,
       title={Bottom-up Domain-specific Superintelligence: A Reliable Knowledge Graph is What We Need}, 
