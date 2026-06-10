@@ -575,43 +575,6 @@ sbatch 3_si_curriculum/slurm/rl_training.slurm
 
 **Output:** checkpoints in `$OUTPUT_BASE/rl_checkpoints/checkpoint-*/`
 
-### 3.8 Step 8 — Evaluation
-
-`eval_models.py` accepts model paths via `MODEL_PATH_1..3` env vars or as CLI
-flags, and input/output dirs via CLI:
-
-```bash
-MODEL_PATH_1=$OUTPUT_BASE/rl_checkpoints/checkpoint-1000 \
-MODEL_PATH_2=$OUTPUT_BASE/rl_checkpoints/checkpoint-2000 \
-python 3_si_curriculum/test_models/eval_models.py \
-    --input_dir   $OUTPUT_BASE/curriculum_verified \
-    --output_dir  $OUTPUT_BASE/eval_results
-
-# Or via SLURM:
-export REPO_DIR
-export EVAL_INPUT_DIR=$OUTPUT_BASE/curriculum_verified
-export EVAL_OUTPUT_DIR=$OUTPUT_BASE/eval_results
-export MODEL_PATH_1=$OUTPUT_BASE/rl_checkpoints/checkpoint-1000
-sbatch 3_si_curriculum/slurm/eval_models.slurm
-```
-
-**Output:** per-item JSON with `correctness_<model>` fields for each checkpoint.
-
-### 3.9 Step 9 — Analysis
-
-```bash
-# Accuracy by hop count + CSV report + plot:
-EVAL_INPUT_DIR=$OUTPUT_BASE/eval_results \
-EVAL_OUTPUT_DIR=$OUTPUT_BASE/eval_results/analysis \
-python 3_si_curriculum/test_models/data_analysis.py
-# Edit INPUT_1 at top of file to point to your result JSON filename
-
-# Error overlap, checkpoint progression, difficulty analysis:
-EVAL_INPUT_FILE=$OUTPUT_BASE/eval_results/eval_results.json \
-python 3_si_curriculum/test_models/correctness_similarity.py
-# Or: python correctness_similarity.py /path/to/results.json
-```
-
 ---
 
 ## Troubleshooting
