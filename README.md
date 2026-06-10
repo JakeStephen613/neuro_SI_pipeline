@@ -1,10 +1,9 @@
 # Neuro SI Pipeline
 
-Official implementation of our paper: **Paper:** [arXiv:2605.25183](https://arxiv.org/abs/2605.25183)
+# Official implementation of [Knowledge Graph-Driven Expert-Level Reasoning for Neuroscience](https://arxiv.org/abs/2605.25183)
 
-**Dataset:** [Neuro-Bench](https://kg-bottom-up-superintelligence.github.io/neuro-bench/)
+**[Neuro-Bench](https://kg-bottom-up-superintelligence.github.io/neuro-bench/)**: The primary dataset our model was trained and evaluated on, comprising 5,000 high-quality neuroscience reasoning questions systematically generated from knowledge-graph paths and balanced evenly across 1-Hop to 5-Hop complexities.
 
-**Neuro-Bench** is the primary evaluation suite our model was trained and tested on, comprising 5,000 high-quality neuroscience reasoning questions systematically generated from knowledge-graph paths and balanced evenly across 1-Hop to 5-Hop complexities.
 
 ```
 Textbook corpus
