@@ -44,8 +44,6 @@ export OUTPUT_BASE=/scratch/<cluster>/<you>/neuro_pipeline  # base output dir
 export HF_HOME=$OUTPUT_BASE/cache/hf_home     # Hugging Face model cache
 ```
 
-All scripts accept paths as CLI arguments or env vars — nothing is hardcoded.
-
 ### Conda environments
 
 Three separate environments, one per stage:
