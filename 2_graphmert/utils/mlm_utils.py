@@ -41,6 +41,15 @@ from .training_arguments import (
     unique_cache_filename,
 )
 
+import sys, os as _os
+sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from graphmert_model import GraphMertConfig, GraphMertForMaskedLM
+try:
+    AutoConfig.register("graphmert", GraphMertConfig)
+    AutoModelForMaskedLM.register(GraphMertConfig, GraphMertForMaskedLM)
+except ValueError:
+    pass  # already registered
+
 logger = logging.getLogger("graphmert_mlm")
 
 # =========================================================

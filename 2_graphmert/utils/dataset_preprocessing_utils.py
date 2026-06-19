@@ -147,7 +147,7 @@ def ground_triples_to_snippets(tok, rel_map, src, kg_df) -> Dataset:
             leaf_special_mask = [1 if t == pad_id else 0 for t in leaves]
 
             rows.append({
-                "id": str(ex["id"]),
+                "id": str(ex["id"]) if "id" in ex else str(idx),
                 "input_nodes": roots + leaves,
                 "attention_mask": [0 if t == pad_id else 1 for t in (roots + leaves)],
                 "leaf_relationships": [rel_num if i == pos else 0 for i in range(ROOT_NODES)],

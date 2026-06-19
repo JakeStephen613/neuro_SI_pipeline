@@ -9,3 +9,6 @@ build/
 wandb/
 wandb_logs/
 *.log
+slurm_logs/*.out
+slurm_logs/*.err
+!slurm_logs/.gitkeep
