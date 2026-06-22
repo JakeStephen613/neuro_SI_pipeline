@@ -200,16 +200,17 @@ python 1_seed_kg/graphrag_index.py \
     --step 5
 ```
 
-**Output:** `$OUTPUT_BASE/graphrag/output/kg_final.parquet`
+**Output:** `$OUTPUT_BASE/graphrag/output/final_relationships.parquet`
 
 ### 1.6 (Optional) Merge incremental runs
 
 ```bash
 python 1_seed_kg/merge_kgs.py \
-    --new  $OUTPUT_BASE/graphrag/output/kg_final.parquet \
-    --old  $OUTPUT_BASE/graphrag/output/kg_old.parquet \
-    --out  $OUTPUT_BASE/graphrag/output/kg_merged.parquet
-# --old is optional; omit it to use the new file as-is
+    --new    $OUTPUT_BASE/graphrag/output/final_relationships.parquet \
+    --old    $OUTPUT_BASE/graphrag/output/final_relationships_old.parquet \
+    --outdir $OUTPUT_BASE/graphrag/output/kg_merged
+# --old is optional; omit it to deduplicate the new file alone
+# Output: $OUTPUT_BASE/graphrag/output/kg_merged/final_relationships.parquet
 ```
 
 **Expected output:** 3,000–10,000 validated triples for an average-sized textbook.
@@ -282,7 +283,7 @@ Assign seed-KG relations to discovered entities via LLM:
 
 ```bash
 python 2_graphmert/utils/relation_matching/add_llm_relations.py \
-    --dataset_path  $OUTPUT_BASE/graphmert/head_positions \
+    --dataset_path  $OUTPUT_BASE/graphmert/head_positions/neuro_heads_all_with_positions \
     --output_root   $OUTPUT_BASE/graphmert/llm_relations \
     --output_name   relations_all \
     --model_id      /path/to/qwen3-14b \
@@ -294,13 +295,13 @@ Clean, validate, and split into train/eval:
 ```bash
 python 2_graphmert/utils/relation_matching/clean_llm_relations.py \
     --input_dir   $OUTPUT_BASE/graphmert/llm_relations/relations_all \
-    --output_dir  $OUTPUT_BASE/graphmert/llm_relations/relations_clean \
+    --output_dir  $OUTPUT_BASE/graphmert/llm_relations \
     --tokenizer   $OUTPUT_BASE/graphmert/stable_tokenizer
 ```
 
 **Outputs:**
-- `$OUTPUT_BASE/graphmert/llm_relations/relations_clean_train/`
-- `$OUTPUT_BASE/graphmert/llm_relations/relations_clean_eval/`
+- `$OUTPUT_BASE/graphmert/llm_relations/relations_cleaned_train/`
+- `$OUTPUT_BASE/graphmert/llm_relations/relations_cleaned_eval/`
 
 ### 2.4 Step 4 — Build training dataset (co-occurrence grounding)
 
@@ -310,9 +311,9 @@ where both head AND tail appear together and builds GraphMERT training samples.
 ```bash
 python 2_graphmert/run_dataset_preprocessing.py \
     --yaml_file    2_graphmert/launch_configs/args_mlm.yaml \
-    --seed_kg_path $OUTPUT_BASE/graphrag/output/kg_final.parquet \
-    --train_src    $OUTPUT_BASE/graphmert/llm_relations/relations_clean_train \
-    --eval_src     $OUTPUT_BASE/graphmert/llm_relations/relations_clean_eval \
+    --seed_kg_path $OUTPUT_BASE/graphrag/output/final_relationships.parquet \
+    --train_src    $OUTPUT_BASE/graphmert/llm_relations/relations_cleaned_train \
+    --eval_src     $OUTPUT_BASE/graphmert/llm_relations/relations_cleaned_eval \
     --tokenizer    $OUTPUT_BASE/graphmert/stable_tokenizer \
     --output_dir   $OUTPUT_BASE/graphmert/dataset
 ```
@@ -365,7 +366,7 @@ sbatch --array=0-3 2_graphmert/slurm/predict_tails.slurm
 python 2_graphmert/predict_tails_llm.py \
     --model_id    /path/to/qwen3-32b \
     --tokenizer   $OUTPUT_BASE/graphmert/stable_tokenizer \
-    --dataset     $OUTPUT_BASE/graphmert/llm_relations/relations_clean_eval \
+    --dataset     $OUTPUT_BASE/graphmert/llm_relations/relations_cleaned_eval \
     --output_dir  $OUTPUT_BASE/graphmert/predictions \
     --num_shards  4 \
     --shard_id    0
@@ -381,8 +382,8 @@ Run the trained GraphMERT checkpoint directly (masked leaf-slot prediction):
 python 2_graphmert/utils/predict_tails.py \
     --model_dir    $OUTPUT_BASE/graphmert/checkpoints/best \
     --tokenizer    $OUTPUT_BASE/graphmert/stable_tokenizer \
-    --relation_map $OUTPUT_BASE/graphmert/relation_map.json \
-    --dataset      $OUTPUT_BASE/graphmert/llm_relations/relations_clean_eval \
+    --relation_map $OUTPUT_BASE/graphmert/dataset/relation_map.json \
+    --dataset      $OUTPUT_BASE/graphmert/llm_relations/relations_cleaned_eval \
     --output_dir   $OUTPUT_BASE/graphmert/predictions_graphmert \
     --topk         20 \
     --batch_size   8
@@ -406,7 +407,7 @@ both models agree are factually supported:
 
 ```bash
 python 2_graphmert/utils/llm_scores/fact_score.py \
-    --input_csv   $OUTPUT_BASE/graphmert/combined/expanded_triples.csv \
+    --input_csv   $OUTPUT_BASE/graphmert/combined/final_kg_scientific_only.csv \
     --output_csv  $OUTPUT_BASE/graphmert/final_kg/validated_triples.csv \
     --model_ids   /path/to/model-A /path/to/model-B \
     --batch_size  64 \
@@ -436,11 +437,11 @@ cd $REPO_DIR
 
 python 3_si_curriculum/calculate_hops.py \
     --kg_path      $OUTPUT_BASE/graphmert/final_kg/validated_triples.csv \
-    --seed_kg_path $OUTPUT_BASE/graphrag/output/kg_final.parquet \
-    --output_path  $OUTPUT_BASE/curriculum/kg_manifest.json
+    --seed_kg_path $OUTPUT_BASE/graphrag/output/final_relationships.parquet \
+    --output_path  $OUTPUT_BASE/curriculum/kg_hops.csv
 ```
 
-**Output:** `$OUTPUT_BASE/curriculum/kg_manifest.json`
+**Output:** `$OUTPUT_BASE/curriculum/kg_hops.csv`
 
 ### 3.1 Step 1 — Generate Q&A curriculum
 
@@ -449,7 +450,7 @@ API key (set `GOOGLE_API_KEY` env var) or pass `--api_key` directly.
 
 ```bash
 python 3_si_curriculum/curriculum_generator/generate_curriculum.py \
-    --manifest_path  $OUTPUT_BASE/curriculum/kg_manifest.json \
+    --manifest_path  $OUTPUT_BASE/curriculum/kg_hops.csv \
     --output_dir     $OUTPUT_BASE/curriculum \
     --min_hops       3 \
     --max_hops       5 \
@@ -458,7 +459,7 @@ python 3_si_curriculum/curriculum_generator/generate_curriculum.py \
     --seed           42
 
 # Or via SLURM:
-export REPO_DIR OUTPUT_BASE MANIFEST_PATH=$OUTPUT_BASE/curriculum/kg_manifest.json
+export REPO_DIR OUTPUT_BASE MANIFEST_PATH=$OUTPUT_BASE/curriculum/kg_hops.csv
 sbatch 3_si_curriculum/slurm/generate_curriculum.slurm
 ```
 

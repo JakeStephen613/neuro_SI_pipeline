@@ -16,10 +16,10 @@
 # Generates multi-hop Q&A items from GraphMERT-expanded KG.
 #
 # Required env vars (set before sbatch, or edit below):
-#   REPO_DIR       - root of neuro_SI_pipeline checkout
-#   OUTPUT_BASE    - scratch output directory
-#   MANIFEST_PATH  - path to kg_manifest.json from calculate_hops.py
-#   OPENAI_API_KEY - API key for QA generation LLM
+#   REPO_DIR        - root of neuro_SI_pipeline checkout
+#   OUTPUT_BASE     - scratch output directory
+#   MANIFEST_PATH   - path to kg_hops.csv from calculate_hops.py
+#   GOOGLE_API_KEY  - Google API key for Gemini (QA generation)
 # ============================================================
 
 set -euo pipefail
@@ -44,4 +44,4 @@ python curriculum_generator/generate_curriculum.py \
     --min_hops      3 \
     --max_hops      5 \
     --target_count  50000 \
-    ${OPENAI_API_KEY:+--api_key "${OPENAI_API_KEY}"}
+    ${GOOGLE_API_KEY:+--api_key "${GOOGLE_API_KEY}"}

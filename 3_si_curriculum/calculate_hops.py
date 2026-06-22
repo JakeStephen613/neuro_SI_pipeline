@@ -41,6 +41,15 @@ def parse_args():
     return ap.parse_args()
 
 
+def _load_kg(path: str) -> pd.DataFrame:
+    df = pd.read_parquet(path) if path.endswith(".parquet") else pd.read_csv(path)
+    if "source" in df.columns and "head" not in df.columns:
+        df = df.rename(columns={"source": "head", "target": "tail"})
+    if "description" in df.columns and "relation" not in df.columns:
+        df = df.rename(columns={"description": "relation"})
+    return df
+
+
 def build_graph(df: pd.DataFrame) -> nx.Graph:
     G = nx.Graph()
     for _, row in df.iterrows():
@@ -103,11 +112,11 @@ def main():
     args = parse_args()
 
     logger.info("Loading full KG: %s", args.kg_path)
-    full_df = pd.read_csv(args.kg_path)
+    full_df = _load_kg(args.kg_path)
     logger.info("Full KG: %d triples", len(full_df))
 
     logger.info("Loading seed KG: %s", args.seed_kg_path)
-    seed_df = pd.read_csv(args.seed_kg_path)
+    seed_df = _load_kg(args.seed_kg_path)
     logger.info("Seed KG: %d triples", len(seed_df))
 
     result_df = compute_hop_distances(full_df, seed_df)

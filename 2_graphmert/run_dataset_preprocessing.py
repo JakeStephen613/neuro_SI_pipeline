@@ -10,7 +10,7 @@ The bridge logic is now fully integrated here.
 Usage:
   python run_dataset_preprocessing.py \\
     --yaml_file   launch_configs/args_mlm.yaml \\
-    --seed_kg_path  ${OUTPUT_BASE}/final_seedkg/neuroscience_kg.csv \\
+    --seed_kg_path  ${OUTPUT_BASE}/graphrag/output/final_relationships.parquet \\
     --train_src     ${OUTPUT_BASE}/graphmert/llm_relations/relations_cleaned_train \\
     --eval_src      ${OUTPUT_BASE}/graphmert/llm_relations/relations_cleaned_eval \\
     --tokenizer     ${OUTPUT_BASE}/graphmert/stable_tokenizer \\

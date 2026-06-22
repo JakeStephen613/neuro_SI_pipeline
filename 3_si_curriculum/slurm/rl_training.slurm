@@ -42,7 +42,7 @@ module purge
 cd "${REPO_DIR}/3_si_curriculum"
 
 python RL/rl_training.py \
-    --model_name_or_path "${MODEL_NAME}" \
-    --output_dir         "${OUTPUT_BASE}/rl_checkpoints" \
-    --dataset_path       "${DATASET_PATH}" \
+    --model_name   "${MODEL_NAME}" \
+    --output_dir   "${OUTPUT_BASE}/rl_checkpoints" \
+    --dataset_path "${DATASET_PATH}" \
     ${RESUME_CHECKPOINT:+--resume_from_checkpoint "${RESUME_CHECKPOINT}"}
