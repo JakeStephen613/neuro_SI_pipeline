@@ -10,8 +10,6 @@ Usage:
     --input_csv   ${OUTPUT_BASE}/graphmert/graphmert_kg/combined/final_kg_scientific_only.csv \\
     --output_csv  ${OUTPUT_BASE}/final_kg/validated_final_kg.csv \\
     --model_ids   /path/to/mistral-nemo-12b /path/to/qwen3-14b
-
-Expected output: 15,000–50,000 validated triples.
 """
 
 import os

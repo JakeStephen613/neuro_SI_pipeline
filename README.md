@@ -14,6 +14,9 @@ Seed KG  (head, relation, tail triples)
     ▼ Part 2 — GraphMERT
 Expanded KG  (2–3× coverage via masked language model)
     │
+    ▼ Two-LLM Validation  (fact_score.py — recommended after Parts 1 & 2)
+Refined KG  (consensus-filtered triples, both models must agree)
+    │
     ▼ Part 3 — SI Curriculum
 Multi-hop Q&A dataset  →  SFT  →  RL (GRPO)
 ```
@@ -402,8 +405,8 @@ python 2_graphmert/utils/combine_tails/combine_tails.py \
     --model_id    /path/to/qwen3-14b
 ```
 
-Score each candidate triple with two independent LLMs — keep only triples
-both models agree are factually supported:
+**Recommended: run `fact_score.py` after both Part 1 (seed KG) and Part 2 (GraphMERT expansion).**
+This step scores every candidate triple with two independent LLMs and keeps only triples both models agree are factually supported. It is the primary quality gate before Part 3 — skipping it will pass unvalidated triples into curriculum generation.
 
 ```bash
 python 2_graphmert/utils/llm_scores/fact_score.py \
@@ -413,12 +416,10 @@ python 2_graphmert/utils/llm_scores/fact_score.py \
     --batch_size  64 \
     --max_model_len 4096 \
     --tensor_parallel_size 1
-# --model_ids requires exactly 2 paths
+# --model_ids requires exactly 2 paths; a triple is kept only when both agree
 ```
 
 **Output:** `$OUTPUT_BASE/graphmert/final_kg/validated_triples.csv`
-
-**Expected output:** 15,000–50,000 validated triples.
 
 ---
 
