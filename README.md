@@ -401,16 +401,15 @@ Merge all shard predictions and deduplicate:
 ```bash
 python 2_graphmert/utils/combine_tails/combine_tails.py \
     --pred_dir    $OUTPUT_BASE/graphmert/predictions \
-    --output_dir  $OUTPUT_BASE/graphmert/combined \
-    --model_id    /path/to/qwen3-14b
+    --output_dir  $OUTPUT_BASE/graphmert/combined
 ```
 
-**Recommended: run `fact_score.py` after both Part 1 (seed KG) and Part 2 (GraphMERT expansion).**
+**Run `fact_score.py` after Part 1 (seed KG) and again after Part 2 (GraphMERT expansion).**
 This step scores every candidate triple with two independent LLMs and keeps only triples both models agree are factually supported. It is the primary quality gate before Part 3 — skipping it will pass unvalidated triples into curriculum generation.
 
 ```bash
 python 2_graphmert/utils/llm_scores/fact_score.py \
-    --input_csv   $OUTPUT_BASE/graphmert/combined/final_kg_scientific_only.csv \
+    --input_csv   $OUTPUT_BASE/graphmert/combined/final_kg_combined.csv \
     --output_csv  $OUTPUT_BASE/graphmert/final_kg/validated_triples.csv \
     --model_ids   /path/to/model-A /path/to/model-B \
     --batch_size  64 \
